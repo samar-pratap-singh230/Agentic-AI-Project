@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized AI Recipe Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        .card { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 10px -5px rgba(0, 0, 0, 0.04); }
+        input:focus, select:focus, textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+        .recipe-json { background-color: #1f2937; color: #f9fafb; padding: 1rem; border-radius: 0.5rem; white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen flex justify-center items-start">
+    <div class="w-full max-w-4xl pt-4">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6 text-center">AI Pantry Chef 🧑‍🍳</h1>
+        <p class="text-center text-gray-600 mb-8">Generate a personalized recipe based on your ingredients and dietary needs.</p>
+        
+        <div id="app-container" class="card bg-white rounded-xl p-6 sm:p-10">
+            
+            <!-- Input Form -->
+            <form id="recipe-form" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div class="col-span-1 md:col-span-2">
+                    <label for="ingredients" class="block text-sm font-medium text-gray-700 mb-1">Main Ingredients (e.g., chicken, broccoli, garlic)</label>
+                    <input type="text" id="ingredients" name="ingredients" value="{{ form.ingredients }}" class="w-full border border-gray-300 rounded-lg p-3 transition duration-150" required>
+                </div>
+
+                <div>
+                    <label for="dietary_needs" class="block text-sm font-medium text-gray-700 mb-1">Dietary Preferences (e.g., Keto, Vegan, Gluten-Free)</label>
+                    <input type="text" id="dietary_needs" name="dietary_needs" value="{{ form.dietary_needs }}" class="w-full border border-gray-300 rounded-lg p-3 transition duration-150">
+                </div>
+
+                <div>
+                    <label for="meal_type" class="block text-sm font-medium text-gray-700 mb-1">Meal Type</label>
+                    <select id="meal_type" name="meal_type" class="w-full border border-gray-300 rounded-lg p-3 transition duration-150 appearance-none">
+                        <option value="Dinner" {% if form.meal_type == 'Dinner' %}selected{% endif %}>Dinner</option>
+                        <option value="Lunch" {% if form.meal_type == 'Lunch' %}selected{% endif %}>Lunch</option>
+                        <option value="Breakfast" {% if form.meal_type == 'Breakfast' %}selected{% endif %}>Breakfast</option>
+                        <option value="Dessert" {% if form.meal_type == 'Dessert' %}selected{% endif %}>Dessert</option>
+                    </select>
+                </div>
+                
+                <div class="col-span-1 md:col-span-2">
+                    <label for="user_email" class="block text-sm font-medium text-gray-700 mb-1">Your Email (for notification)</label>
+                    <input type="email" id="user_email" name="user_email" value="{{ form.user_email }}" class="w-full border border-gray-300 rounded-lg p-3 transition duration-150" required>
+                </div>
+
+                <div class="col-span-1 md:col-span-2 mt-4">
+                    <button type="submit" id="submit-button" class="w-full flex items-center justify-center bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300 focus:outline-none focus:ring-4 focus:ring-blue-500/50 shadow-lg">
+                        <svg id="button-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a5.952 5.952 0 011.084-.337c.362-.084.733-.119 1.109-.119h2.333a2 2 0 012 2v2.333c0 .376-.035.747-.119 1.109a5.952 5.952 0 01-.337 1.084m-1.084-3.354a5.952 5.952 0 00-.337-1.084c-.084-.362-.119-.733-.119-1.109v-2.333a2 2 0 00-2-2h-2.333c-.376 0-.747.035-1.109.119a5.952 5.952 0 00-1.084.337m-1.084 3.354a5.952 5.952 0 00-.337 1.084c-.084.362-.119.733-.119 1.109v2.333a2 2 0 002 2h2.333c.376 0 .747-.035 1.109-.119a5.952 5.952 0 001.084-.337"></path></svg>
+                        <span id="button-text">Generate Recipe & Send Email</span>
+                    </button>
+                    <p id="loading-message" class="hidden text-center text-sm text-blue-600 mt-2">The AI Chef is preparing your dish...</p>
+                </div>
+            </form>
+
+            <!-- Results Display -->
+            <div id="results" class="mt-8 pt-6 border-t border-gray-200 hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.108c-.464-.465-1.173-.722-1.897-.722H5.28c-.724 0-1.433.257-1.897.722C3.12 5.108 3.018 5.797 3.018 6.52v10.96c0 .723.102 1.412.383 2.029.464.465 1.173.722 1.897.722h13.44c.724 0 1.433-.257 1.897-.722.28-.617.382-1.306.382-2.029V6.52c0-.723-.102-1.412-.382-2.029z"></path></svg>
+                    Recipe Generated!
+                </h2>
+                
+                <div id="recipe-summary" class="mb-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                    <!-- Summary content will be injected here -->
+                </div>
+
+                <div id="mail-status" class="text-sm font-medium p-3 rounded-lg">
+                    <!-- Mail status will be injected here -->
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-2">Full JSON Data (for developers/debug)</h3>
+                <pre id="recipe-data" class="recipe-json text-sm overflow-x-auto"></pre>
+            </div>
+            
+            <div id="error-message" class="mt-8 pt-6 border-t border-red-200 text-red-600 font-semibold hidden">
+                An error occurred during recipe generation. Please check the console for details.
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('recipe-form');
+        const resultsDiv = document.getElementById('results');
+        const errorDiv = document.getElementById('error-message');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const loadingMessage = document.getElementById('loading-message');
+        const buttonIcon = document.getElementById('button-icon');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Clear previous results
+            resultsDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            
+            // Disable button and show loading state
+            submitButton.disabled = true;
+            buttonText.textContent = 'Generating...';
+            buttonIcon.classList.add('hidden');
+            loadingMessage.classList.remove('hidden');
+
+            const formData = {
+                ingredients: document.getElementById('ingredients').value,
+                dietary_needs: document.getElementById('dietary_needs').value,
+                meal_type: document.getElementById('meal_type').value,
+                user_email: document.getElementById('user_email').value
+            };
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    displaySuccess(data);
+                } else {
+                    displayError(data.message || 'Unknown generation error.');
+                }
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                displayError('Network or server connection failed.');
+            } finally {
+                // Reset button state
+                submitButton.disabled = false;
+                buttonText.textContent = 'Generate Recipe & Send Email';
+                buttonIcon.classList.remove('hidden');
+                loadingMessage.classList.add('hidden');
+            }
+        });
+
+        function formatRecipeForDisplay(recipe) {
+            let html = `<h4 class="text-lg font-bold text-blue-800">${recipe.title || 'Untitled Recipe'}</h4>`;
+            html += `<p class="text-sm text-blue-700 mt-1">Prep: ${recipe.prep_time_minutes} min | Cook: ${recipe.cook_time_minutes} min | Servings: ${recipe.servings}</p>`;
+            
+            html += `<h5 class="font-semibold mt-3 mb-1">Ingredients:</h5><ul class="list-disc list-inside text-sm">`;
+            (recipe.ingredients || []).forEach(ing => {
+                html += `<li>${ing.quantity} ${ing.unit} of ${ing.name}</li>`;
+            });
+            html += `</ul>`;
+
+            html += `<h5 class="font-semibold mt-3 mb-1">Instructions:</h5><ol class="list-decimal list-inside text-sm">`;
+            (recipe.instructions || []).forEach(step => {
+                html += `<li>${step}</li>`;
+            });
+            html += `</ol>`;
+
+            return html;
+        }
+
+        function displaySuccess(data) {
+            resultsDiv.classList.remove('hidden');
+            
+            // Display Recipe Data
+            const recipe = data.recipe_data;
+            document.getElementById('recipe-summary').innerHTML = formatRecipeForDisplay(recipe);
+            document.getElementById('recipe-data').textContent = JSON.stringify(recipe, null, 2);
+
+            // Display Mail Status
+            const mailStatusDiv = document.getElementById('mail-status');
+            mailStatusDiv.textContent = `Mail Status: ${data.mail_status}`;
+            
+            // Simple visual feedback for mail status
+            if (data.mail_status.toLowerCase().includes('success') || data.mail_status.toLowerCase().includes('simulated')) {
+                 mailStatusDiv.classList.remove('bg-red-100', 'text-red-800');
+                 mailStatusDiv.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                 mailStatusDiv.classList.remove('bg-green-100', 'text-green-800');
+                 mailStatusDiv.classList.add('bg-red-100', 'text-red-800');
+            }
+        }
+
+        function displayError(message) {
+            errorDiv.textContent = `Error: ${message}`;
+            errorDiv.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
