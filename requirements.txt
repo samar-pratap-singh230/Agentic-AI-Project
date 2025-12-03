@@ -3,3 +3,4 @@ crewai
 google-generativeai
 pydantic
 python-dotenv
+gunicorn
